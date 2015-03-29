@@ -15,90 +15,90 @@ Mapbox - https://www.mapbox.com/tos/
 import itertools
 import json
 
-import polycomp
+# import polycomp
 import requests
 
-from base import Router, Route, Maneuver, Waypoint
+from .base import Router, Route, Maneuver, Waypoint
 
 
-class Google(Router):
-    url = 'http://maps.googleapis.com/maps/api/directions/json'
-    default_name = 'google'
+# class Google(Router):
+#     url = 'http://maps.googleapis.com/maps/api/directions/json'
+#     default_name = 'google'
 
-    def __init__(self, *args, **kwargs):
-        Router.__init__(self, *args, **kwargs)
+#     def __init__(self, *args, **kwargs):
+#         Router.__init__(self, *args, **kwargs)
 
-    # https://developers.google.com/maps/documentation/directions/
-    def _convert_coordinate(self, p, t=Waypoint.VIA):
-        if isinstance(p, basestring):
-            return p
-        if t == Waypoint.VIA:
-            via = 'via:'
-        else:
-            via = ''
+#     # https://developers.google.com/maps/documentation/directions/
+#     def _convert_coordinate(self, p, t=Waypoint.VIA):
+#         if isinstance(p, str):
+#             return p
+#         if t == Waypoint.VIA:
+#             via = 'via:'
+#         else:
+#             via = ''
 
-        # Google wants lat / lon
-        return '{via}{0[1]:.6f},{0[0]:.6f}'.format(p, via=via)
+#         # Google wants lat / lon
+#         return '{via}{0[1]:.6f},{0[0]:.6f}'.format(p, via=via)
 
-    def _query_params(self, waypoints):
-        origin = waypoints[0]
-        destination = waypoints[-1]
-        vias = waypoints[1:-1]
-        # This assumes you're not running Python on a device with a location
-        # sensor.
-        payload = {
-            'origin': self._convert_coordinate(origin, t=None),
-            'destination': self._convert_coordinate(destination, t=None),
-            'sensor': 'false',
-            'units': 'metric',
-        }
-        if vias:
-            payload['waypoints'] = '|'.join(self._convert_coordinate(v)
-                                            for v in vias)
-        return payload
+#     def _query_params(self, waypoints):
+#         origin = waypoints[0]
+#         destination = waypoints[-1]
+#         vias = waypoints[1:-1]
+#         # This assumes you're not running Python on a device with a location
+#         # sensor.
+#         payload = {
+#             'origin': self._convert_coordinate(origin, t=None),
+#             'destination': self._convert_coordinate(destination, t=None),
+#             'sensor': 'false',
+#             'units': 'metric',
+#         }
+#         if vias:
+#             payload['waypoints'] = '|'.join(self._convert_coordinate(v)
+#                                             for v in vias)
+#         return payload
 
-    def raw_query(self, waypoints, **kwargs):
-        payload = self._query_params(waypoints)
-        payload.update(kwargs)
+#     def raw_query(self, waypoints, **kwargs):
+#         payload = self._query_params(waypoints)
+#         payload.update(kwargs)
 
-        r = requests.get(self.url, params=payload)
-        r.raise_for_status()
+#         r = requests.get(self.url, params=payload)
+#         r.raise_for_status()
 
-        return r.json()
+#         return r.json()
 
-    def format_output(self, data):
-        routes = []
-        for r in data['routes']:
-            duration = sum(leg['duration']['value'] for leg in r['legs'])
-            distance = sum(leg['distance']['value'] for leg in r['legs'])
+#     def format_output(self, data):
+#         routes = []
+#         for r in data['routes']:
+#             duration = sum(leg['duration']['value'] for leg in r['legs'])
+#             distance = sum(leg['distance']['value'] for leg in r['legs'])
 
-            maneuvers = []
-            latlons = []
-            # Legs are the spans of the route between waypoints desired. If
-            # there are no waypoints, there will only be 1 leg
-            for leg in r['legs']:
-                for step in leg['steps']:
-                    loc = step['start_location']
-                    m = Maneuver((loc['lng'], loc['lat']),
-                                 text=step['html_instructions'])
-                    maneuvers.append(m)
-                    latlons.append(
-                        polycomp.decompress(step['polyline']['points']))
+#             maneuvers = []
+#             latlons = []
+#             # Legs are the spans of the route between waypoints desired. If
+#             # there are no waypoints, there will only be 1 leg
+#             for leg in r['legs']:
+#                 for step in leg['steps']:
+#                     loc = step['start_location']
+#                     m = Maneuver((loc['lng'], loc['lat']),
+#                                  text=step['html_instructions'])
+#                     maneuvers.append(m)
+#                     latlons.append(
+#                         polycomp.decompress(step['polyline']['points']))
 
-            # latlons is a list of list of lat/lon coordinate pairs. The end
-            # point of each list is the same as the first point of the next
-            # list. Get rid of the duplicates
-            lines = [x[:-1] for x in latlons]
-            lines.append([latlons[-1][-1]])  # Add the very last point
-            points = itertools.chain(*lines)
+#             # latlons is a list of list of lat/lon coordinate pairs. The end
+#             # point of each list is the same as the first point of the next
+#             # list. Get rid of the duplicates
+#             lines = [x[:-1] for x in latlons]
+#             lines.append([latlons[-1][-1]])  # Add the very last point
+#             points = itertools.chain(*lines)
 
-            # Reverse lat/lon to be lon/lat for GeoJSON
-            coords = [tuple(reversed(c)) for c in points]
+#             # Reverse lat/lon to be lon/lat for GeoJSON
+#             coords = [tuple(reversed(c)) for c in points]
 
-            route = Route(coords, distance, duration, maneuvers=maneuvers)
-            routes.append(route)
+#             route = Route(coords, distance, duration, maneuvers=maneuvers)
+#             routes.append(route)
 
-        return routes
+#         return routes
 
 
 class Mapquest(Router):
@@ -115,7 +115,7 @@ class Mapquest(Router):
             via = 'v'
         else:
             via = 's'
-        if isinstance(location, basestring):
+        if isinstance(location, str):
             return {'street': location, 'type': via}
         else:
             return {'latLng': {'lat': location[1], 'lng': location[0]},
@@ -142,29 +142,41 @@ class Mapquest(Router):
         locations = self._format_waypoints(waypoints)
         data = {
             'locations': locations,
+            'key':self.key,
             'options': {
                 'avoidTimedConditions': False,
-                'shapeFormat': 'cmp',
+                'shapeFormat': 'raw',
                 'generalize': 0,  # No simplification
                 'unit': 'k',
             },
         }
         data = json.dumps(data, separators=(',', ':'))
-
-        r = requests.post(self.url,
+        r = requests.post(self.url + "?key=" + self.key,
                           params=params,
                           data=data)
         r.raise_for_status()
         data = r.json()
         status_code = data['info']['statuscode']
         if status_code != 0:
+            print (status_code)
+            print (data)
             raise Exception(data['info']['messages'][0])
 
         return data
 
+    def split_coords(self, latlons):
+        coords = []
+        while len(latlons):
+            x = latlons.pop()
+            y = latlons.pop()
+            coords.append((x, y))
+        return coords
+
     def format_output(self, data):
-        latlons = polycomp.decompress(data['route']['shape']['shapePoints'])
-        coords = [tuple(reversed(c)) for c in latlons]
+        latlons = self.split_coords(data['route']['shape']['shapePoints'])
+        # latlons = data['route']['shape']['shapePoints']
+        # print (latlons)
+        # coords = [tuple(reversed(c)) for c in latlons]
         duration = data['route']['time']
         distance = data['route']['distance'] * 1000  # km to m
 
@@ -175,7 +187,7 @@ class Mapquest(Router):
                 m = Maneuver((loc['lng'], loc['lat']),
                              text=m_in['narrative'])
                 maneuvers.append(m)
-        r = Route(coords, distance, duration, maneuvers=maneuvers)
+        r = Route(latlons, distance, duration, maneuvers=maneuvers)
 
         return [r]
 
